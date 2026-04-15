@@ -6,6 +6,69 @@ export type StatsQuery = {
   day?: string;
 };
 
+type ActivityRow = {
+  id: string;
+  appName: string;
+  processName: string;
+  windowTitle: string;
+  urlDomain: string | null;
+  durationMs: number;
+  startUtc: Date;
+  endUtc: Date;
+};
+
+const browserAppNames: Record<string, string> = {
+  firefox: 'Mozilla Firefox',
+  chrome: 'Google Chrome',
+  msedge: 'Microsoft Edge'
+};
+
+const siteKeywordMap: Array<{ keyword: string; domain: string }> = [
+  { keyword: 'youtube', domain: 'youtube.com' },
+  { keyword: 'instagram', domain: 'instagram.com' },
+  { keyword: 'whatsapp', domain: 'web.whatsapp.com' },
+  { keyword: 'github', domain: 'github.com' },
+  { keyword: 'google', domain: 'google.com' },
+  { keyword: 'supabase', domain: 'supabase.com' },
+  { keyword: 'vercel', domain: 'vercel.com' },
+  { keyword: 'linkedin', domain: 'linkedin.com' },
+  { keyword: 'reddit', domain: 'reddit.com' },
+  { keyword: 'tiktok', domain: 'tiktok.com' },
+  { keyword: 'x.com', domain: 'x.com' },
+  { keyword: 'twitter', domain: 'x.com' },
+  { keyword: 'facebook', domain: 'facebook.com' }
+];
+
+function normalizeAppName(processName: string, appName: string): string {
+  const browserName = browserAppNames[processName.toLowerCase()];
+  return browserName ?? appName;
+}
+
+function normalizeDomain(domain: string): string {
+  return domain.toLowerCase().replace(/^www\./, '');
+}
+
+function inferSiteDomain(activity: ActivityRow): string | null {
+  if (activity.urlDomain) {
+    return normalizeDomain(activity.urlDomain);
+  }
+
+  if (!browserAppNames[activity.processName.toLowerCase()]) {
+    return null;
+  }
+
+  const title = activity.windowTitle.toLowerCase();
+
+  for (const item of siteKeywordMap) {
+    if (title.includes(item.keyword)) {
+      return item.domain;
+    }
+  }
+
+  const domainMatch = title.match(/([a-z0-9-]+\.)+[a-z]{2,}/i);
+  return domainMatch ? normalizeDomain(domainMatch[0]) : null;
+}
+
 function toDayRange(day?: string): { start: Date; end: Date } | null {
   if (!day) return null;
   const start = new Date(`${day}T00:00:00.000Z`);
@@ -34,38 +97,35 @@ export async function getStats(query: StatsQuery) {
         : {})
   };
 
-  const [activities, appRank, siteRank] = await Promise.all([
-    prisma.activity.findMany({
-      where,
-      orderBy: { startUtc: 'asc' },
-      select: {
-        id: true,
-        appName: true,
-        processName: true,
-        windowTitle: true,
-        urlDomain: true,
-        durationMs: true,
-        startUtc: true,
-        endUtc: true
-      }
-    }),
-    prisma.activity.groupBy({
-      by: ['appName'],
-      where,
-      _sum: { durationMs: true },
-      orderBy: { _sum: { durationMs: 'desc' } },
-      take: 15
-    }),
-    prisma.activity.groupBy({
-      by: ['urlDomain'],
-      where: { ...where, urlDomain: { not: null } },
-      _sum: { durationMs: true },
-      orderBy: { _sum: { durationMs: 'desc' } },
-      take: 15
-    })
-  ]);
+  const activities = (await prisma.activity.findMany({
+    where,
+    orderBy: { startUtc: 'asc' },
+    select: {
+      id: true,
+      appName: true,
+      processName: true,
+      windowTitle: true,
+      urlDomain: true,
+      durationMs: true,
+      startUtc: true,
+      endUtc: true
+    }
+  })) as ActivityRow[];
 
   const totalMs = activities.reduce((acc: number, a: { durationMs: number }) => acc + a.durationMs, 0);
+
+  const appMap = new Map<string, number>();
+  const siteMap = new Map<string, number>();
+
+  for (const item of activities) {
+    const app = normalizeAppName(item.processName, item.appName);
+    appMap.set(app, (appMap.get(app) ?? 0) + item.durationMs);
+
+    const site = inferSiteDomain(item);
+    if (site) {
+      siteMap.set(site, (siteMap.get(site) ?? 0) + item.durationMs);
+    }
+  }
 
   const byDayMap = new Map<string, number>();
   for (const item of activities) {
@@ -76,20 +136,22 @@ export async function getStats(query: StatsQuery) {
   const byDay = [...byDayMap.entries()].map(([date, durationMs]) => ({ date, durationMs }));
   byDay.sort((a, b) => a.date.localeCompare(b.date));
 
+  const apps = [...appMap.entries()]
+    .map(([name, durationMs]) => ({ name, durationMs }))
+    .sort((a, b) => b.durationMs - a.durationMs)
+    .slice(0, 15);
+
+  const sites = [...siteMap.entries()]
+    .map(([name, durationMs]) => ({ name, durationMs }))
+    .sort((a, b) => b.durationMs - a.durationMs)
+    .slice(0, 15);
+
   return {
     totalMs,
     averageDailyMs: byDay.length ? Math.round(totalMs / byDay.length) : 0,
     timeline: activities,
     byDay,
-    apps: appRank.map((a: { appName: string; _sum: { durationMs: number | null } }) => ({
-      name: a.appName,
-      durationMs: a._sum.durationMs ?? 0
-    })),
-    sites: siteRank
-      .filter((s: { urlDomain: string | null }) => s.urlDomain)
-      .map((s: { urlDomain: string | null; _sum: { durationMs: number | null } }) => ({
-        name: s.urlDomain as string,
-        durationMs: s._sum.durationMs ?? 0
-      }))
+    apps,
+    sites
   };
 }
