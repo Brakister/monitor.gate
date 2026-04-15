@@ -81,7 +81,8 @@ export default function DashboardPage() {
       });
 
       if (!res.ok) {
-        throw new Error(`Login falhou (${res.status})`);
+        const payload = (await res.json().catch(() => null)) as { error?: string } | null;
+        throw new Error(payload?.error ? `${payload.error} (${res.status})` : `Login falhou (${res.status})`);
       }
 
       const data = (await res.json()) as { token: string };

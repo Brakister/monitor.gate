@@ -11,38 +11,47 @@ const loginSchema = z.object({
 });
 
 export async function POST(req: NextRequest) {
-  const client = req.headers.get('x-forwarded-for') ?? 'local';
-  if (!applyRateLimit(`login:${client}`, 20, 60_000)) {
-    return NextResponse.json({ error: 'Too many requests' }, { status: 429 });
-  }
-
-  const body = await req.json();
-  const parsed = loginSchema.safeParse(body);
-  if (!parsed.success) {
-    return NextResponse.json({ error: 'Invalid payload' }, { status: 400 });
-  }
-
-  const user = await prisma.user.findFirst({
-    where: {
-      OR: [
-        { username: parsed.data.login },
-        { email: parsed.data.login }
-      ]
+  try {
+    const client = req.headers.get('x-forwarded-for') ?? 'local';
+    if (!applyRateLimit(`login:${client}`, 20, 60_000)) {
+      return NextResponse.json({ error: 'Too many requests' }, { status: 429 });
     }
-  });
-  if (!user) {
-    return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 });
-  }
 
-  const ok = await bcrypt.compare(parsed.data.password, user.passwordHash);
-  if (!ok) {
-    return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 });
-  }
+    const body = await req.json();
+    const parsed = loginSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json({ error: 'Invalid payload' }, { status: 400 });
+    }
 
-  const token = await signAuthToken({
-    sub: user.id,
-    username: user.username,
-    email: user.email ?? undefined
-  });
-  return NextResponse.json({ token });
+    const user = await prisma.user.findFirst({
+      where: {
+        OR: [
+          { username: parsed.data.login },
+          { email: parsed.data.login }
+        ]
+      }
+    });
+    if (!user) {
+      return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 });
+    }
+
+    const ok = await bcrypt.compare(parsed.data.password, user.passwordHash);
+    if (!ok) {
+      return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 });
+    }
+
+    if (!process.env.JWT_SECRET) {
+      return NextResponse.json({ error: 'JWT_SECRET missing in environment' }, { status: 500 });
+    }
+
+    const token = await signAuthToken({
+      sub: user.id,
+      username: user.username,
+      email: user.email ?? undefined
+    });
+    return NextResponse.json({ token });
+  } catch (error) {
+    console.error('LOGIN_ROUTE_ERROR', error);
+    return NextResponse.json({ error: 'Login failed due to server error' }, { status: 500 });
+  }
 }

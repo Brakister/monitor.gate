@@ -75,6 +75,7 @@ Pré-requisitos: .NET SDK 8.
 Foi adicionado instalador automatizado:
 
 - Arquivo: `agent/install-agent.ps1`
+- Arquivo: `agent/install-agent.bat` (atalho facil com auto-permissao de Administrador)
 
 Executar como Administrador:
 
@@ -82,6 +83,15 @@ Executar como Administrador:
 Set-Location .\agent
 .\install-agent.ps1 -ApiBaseUrl "https://SEU-APP.vercel.app" -ApiToken "SEU_INGEST_API_TOKEN"
 ```
+
+Opcao recomendada (mais facil):
+
+```bat
+cd /d D:\monitor.gate\agent
+install-agent.bat -ApiBaseUrl "https://SEU-APP.vercel.app" -ApiToken "SEU_INGEST_API_TOKEN"
+```
+
+O `install-agent.bat` eleva sozinho para Administrador quando necessario e executa o script PowerShell por baixo.
 
 Exemplo com parametros de 24/7:
 
