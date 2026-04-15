@@ -46,9 +46,9 @@ public static class NativeMethods
         }
 
         string processName = process.ProcessName;
-        string appName = string.IsNullOrWhiteSpace(process.MainWindowTitle)
-            ? processName
-            : process.MainWindowTitle;
+        
+        // Determinar appName: se for navegador, usar nome formatado; senão, usar window title ou process name
+        string appName = GetFriendlyAppName(processName, process.MainWindowTitle);
 
         (string? url, string? domain) = browserInspector.Inspect(processName, title);
 
@@ -60,5 +60,16 @@ public static class NativeMethods
             url,
             domain
         );
+    }
+
+    private static string GetFriendlyAppName(string processName, string windowTitle)
+    {
+        return processName.ToLowerInvariant() switch
+        {
+            "firefox" => "Mozilla Firefox",
+            "chrome" => "Google Chrome",
+            "msedge" => "Microsoft Edge",
+            _ => string.IsNullOrWhiteSpace(windowTitle) ? processName : windowTitle
+        };
     }
 }
