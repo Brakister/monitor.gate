@@ -1,12 +1,12 @@
 ﻿**********************
 Início da transcrição do Windows PowerShell
-Hora de início: 20260415121912
+Hora de início: 20260415134116
 Nome de Usuário: SHOUKO\kamiy
 Executar como Usuário: SHOUKO\kamiy
 Nome da Configuração: 
 Computador: SHOUKO (Microsoft Windows NT 10.0.26200.0)
 Aplicativo Host: powershell -NoProfile -ExecutionPolicy Bypass -File D:\monitor.gate\agent\install-agent-logon.ps1 -LogPath D:\monitor.gate\agent\install-logon-log.txt
-ID do Processo: 21956
+ID do Processo: 5384
 PSVersion: 5.1.26100.7920
 PSEdition: Desktop
 PSCompatibleVersions: 1.0, 2.0, 3.0, 4.0, 5.0, 5.1.26100.7920
@@ -19,7 +19,7 @@ SerializationVersion: 1.1.0.1
 Publicando agente...
 Restaurando pacotes via NuGet source: https://api.nuget.org/v3/index.json
   Determinando os projetos a serem restaurados...
-  D:\monitor.gate\agent\MonitorGate.Agent\MonitorGate.Agent.csproj restaurado (em 302 ms).
+  D:\monitor.gate\agent\MonitorGate.Agent\MonitorGate.Agent.csproj restaurado (em 841 ms).
   MonitorGate.Agent -> D:\monitor.gate\agent\MonitorGate.Agent\bin\Release\net8.0-windows\win-x64\MonitorGate.Agent.dll
   MonitorGate.Agent -> D:\monitor.gate\agent\publish\
 Copiando arquivos para pasta de instalacao...
@@ -34,5 +34,5 @@ Intervalo de sync: 120 segundos
 Log de instalacao: D:\monitor.gate\agent\install-logon-log.txt
 **********************
 Fim da transcrição do Windows PowerShell
-Hora de término: 20260415121920
+Hora de término: 20260415134126
 **********************

@@ -14,6 +14,25 @@ public sealed class BrowserInspector
         RegexOptions.Compiled | RegexOptions.IgnoreCase
     );
 
+    private static readonly Regex DomainRegex = new(
+        @"(?:^|\W)((?:[a-z0-9-]+\.)+[a-z]{2,})(?:$|\W)",
+        RegexOptions.Compiled | RegexOptions.IgnoreCase
+    );
+
+    private static readonly Dictionary<string, string> KeywordDomains = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["youtube"] = "youtube.com",
+        ["instagram"] = "instagram.com",
+        ["whatsapp"] = "web.whatsapp.com",
+        ["github"] = "github.com",
+        ["linkedin"] = "linkedin.com",
+        ["reddit"] = "reddit.com",
+        ["facebook"] = "facebook.com",
+        ["tiktok"] = "tiktok.com",
+        ["x.com"] = "x.com",
+        ["twitter"] = "x.com"
+    };
+
     public (string? Url, string? Domain) Inspect(string processName, string title)
     {
         if (!BrowserProcesses.Contains(processName.ToLowerInvariant()))
@@ -28,11 +47,25 @@ public sealed class BrowserInspector
             return (uri.ToString(), uri.Host);
         }
 
+        Match domainMatch = DomainRegex.Match(title);
+        if (domainMatch.Success)
+        {
+            return (null, domainMatch.Groups[1].Value.ToLowerInvariant());
+        }
+
         // Fallback: usa apenas o domínio derivado de padrões comuns no título.
         string cleaned = title.Replace(" - Google Chrome", string.Empty)
             .Replace(" - Microsoft Edge", string.Empty)
             .Replace(" - Mozilla Firefox", string.Empty)
             .Trim();
+
+        foreach (KeyValuePair<string, string> entry in KeywordDomains)
+        {
+            if (cleaned.Contains(entry.Key, StringComparison.OrdinalIgnoreCase))
+            {
+                return (null, entry.Value);
+            }
+        }
 
         if (cleaned.Contains('.') && !cleaned.Contains(' '))
         {

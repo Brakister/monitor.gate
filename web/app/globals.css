@@ -475,6 +475,73 @@ a:hover {
   letter-spacing: 1px;
 }
 
+.sync-status-card .stat-value {
+  font-size: 24px;
+}
+
+.sync-status-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 0;
+  border-bottom: 1px solid rgba(0, 217, 255, 0.1);
+  font-size: 12px;
+}
+
+.sync-status-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 0 0 10px 0;
+  margin-bottom: 2px;
+  border-bottom: 1px solid rgba(0, 217, 255, 0.15);
+  font-size: 12px;
+  color: var(--text-light);
+}
+
+.sync-badge {
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+}
+
+.sync-badge-online {
+  color: #0a0e27;
+  background: linear-gradient(135deg, #00ff88, #00d9ff);
+  box-shadow: 0 0 12px rgba(0, 255, 136, 0.35);
+}
+
+.sync-badge-warn {
+  color: #0a0e27;
+  background: linear-gradient(135deg, #ffbe0b, #ffd166);
+  box-shadow: 0 0 12px rgba(255, 190, 11, 0.3);
+}
+
+.sync-badge-offline {
+  color: #0a0e27;
+  background: linear-gradient(135deg, #ff006e, #ff4d6d);
+  box-shadow: 0 0 12px rgba(255, 0, 110, 0.35);
+}
+
+.sync-status-row:last-child {
+  border-bottom: none;
+}
+
+.sync-status-row span {
+  color: var(--text-light);
+}
+
+.sync-status-row strong {
+  color: var(--accent);
+  font-weight: 800;
+  white-space: nowrap;
+}
+
 /* ========== CHARTS SECTION ========== */
 .charts-section {
   display: grid;

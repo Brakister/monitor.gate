@@ -15,6 +15,7 @@ type ActivityRow = {
   durationMs: number;
   startUtc: Date;
   endUtc: Date;
+  createdAt: Date;
 };
 
 const browserAppNames: Record<string, string> = {
@@ -108,9 +109,31 @@ export async function getStats(query: StatsQuery) {
       urlDomain: true,
       durationMs: true,
       startUtc: true,
-      endUtc: true
+      endUtc: true,
+      createdAt: true
     }
   })) as ActivityRow[];
+
+  const latestPostedActivity = await prisma.activity.findFirst({
+    where: { userId: query.userId },
+    orderBy: { createdAt: 'desc' },
+    select: {
+      sessionId: true,
+      createdAt: true
+    }
+  });
+
+  const sessionStartAggregate = latestPostedActivity
+    ? await prisma.activity.aggregate({
+        where: {
+          userId: query.userId,
+          sessionId: latestPostedActivity.sessionId
+        },
+        _min: {
+          startUtc: true
+        }
+      })
+    : null;
 
   const totalMs = activities.reduce((acc: number, a: { durationMs: number }) => acc + a.durationMs, 0);
 
@@ -143,12 +166,13 @@ export async function getStats(query: StatsQuery) {
 
   const sites = [...siteMap.entries()]
     .map(([name, durationMs]) => ({ name, durationMs }))
-    .sort((a, b) => b.durationMs - a.durationMs)
-    .slice(0, 15);
+    .sort((a, b) => b.durationMs - a.durationMs);
 
   return {
     totalMs,
     averageDailyMs: byDay.length ? Math.round(totalMs / byDay.length) : 0,
+    sessionStartUtc: sessionStartAggregate?._min.startUtc?.toISOString() ?? null,
+    lastPostUtc: latestPostedActivity?.createdAt.toISOString() ?? null,
     timeline: activities,
     byDay,
     apps,

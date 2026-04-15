@@ -8,6 +8,8 @@ import { formatDuration } from '@/lib/timeFormat';
 type ApiStats = {
   totalMs: number;
   averageDailyMs: number;
+  sessionStartUtc: string | null;
+  lastPostUtc: string | null;
   timeline: {
     id: string;
     appName: string;
@@ -27,6 +29,46 @@ const now = new Date();
 const defaultDay = now.toISOString().slice(0, 10);
 const defaultMonth = now.toISOString().slice(0, 7);
 
+function formatDateTime(value: string | null): string {
+  if (!value) return '--';
+
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return '--';
+
+  return parsed.toLocaleString('pt-BR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+}
+
+function getSyncStatus(lastPostUtc: string | null): {
+  label: string;
+  className: string;
+} {
+  if (!lastPostUtc) {
+    return { label: 'Sem post', className: 'sync-badge sync-badge-offline' };
+  }
+
+  const parsed = new Date(lastPostUtc);
+  if (Number.isNaN(parsed.getTime())) {
+    return { label: 'Inválido', className: 'sync-badge sync-badge-offline' };
+  }
+
+  const elapsedMs = Date.now() - parsed.getTime();
+  if (elapsedMs <= 3 * 60 * 1000) {
+    return { label: 'Online', className: 'sync-badge sync-badge-online' };
+  }
+
+  if (elapsedMs <= 10 * 60 * 1000) {
+    return { label: 'Atenção', className: 'sync-badge sync-badge-warn' };
+  }
+
+  return { label: 'Atrasado', className: 'sync-badge sync-badge-offline' };
+}
+
 export default function DashboardPage() {
   const router = useRouter();
   const [token, setToken] = useState('');
@@ -37,6 +79,8 @@ export default function DashboardPage() {
   const [stats, setStats] = useState<ApiStats | null>(null);
   const [error, setError] = useState('');
   const [mounted, setMounted] = useState(false);
+
+  const syncStatus = useMemo(() => getSyncStatus(stats?.lastPostUtc ?? null), [stats?.lastPostUtc]);
 
   // Verificar token ao montar
   useEffect(() => {
@@ -189,6 +233,21 @@ export default function DashboardPage() {
                 <p className="stat-label">Sites</p>
                 <p className="stat-value">{stats.sites.length}</p>
               </div>
+              <div className="stat-card sync-status-card">
+                <p className="stat-label">Sincronização</p>
+                <div className="sync-status-head">
+                  <span>Status</span>
+                  <span className={syncStatus.className}>{syncStatus.label}</span>
+                </div>
+                <div className="sync-status-row">
+                  <span>Início da sessão</span>
+                  <strong>{formatDateTime(stats.sessionStartUtc)}</strong>
+                </div>
+                <div className="sync-status-row">
+                  <span>Último post</span>
+                  <strong>{formatDateTime(stats.lastPostUtc)}</strong>
+                </div>
+              </div>
             </section>
 
             {/* Charts Section */}
@@ -218,12 +277,12 @@ export default function DashboardPage() {
               </div>
 
               <div className="ranking-card">
-                <h3>Top Sites</h3>
+                <h3>Todos os Sites</h3>
                 <div className="ranking-list">
                   {stats.sites.length === 0 ? (
                     <p className="muted">Sem dados</p>
                   ) : (
-                    stats.sites.slice(0, 10).map((item, idx) => (
+                    stats.sites.map((item, idx) => (
                       <div key={`${item.name}-${idx}`} className="ranking-item">
                         <div className="ranking-info">
                           <span className="ranking-position">{idx + 1}</span>
