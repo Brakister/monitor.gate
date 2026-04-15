@@ -26,14 +26,15 @@ type Props = {
 };
 
 const toHours = (ms: number) => Math.round((ms / 3_600_000) * 100) / 100;
+const palette = ['#ff006e', '#ffbe0b', '#00d9ff', '#00ff88', '#ff3366', '#00ccff', '#ffaa00', '#ff1493'];
 
 export default function Charts({ apps, sites, byDay }: Props) {
   const appData = {
-    labels: apps.slice(0, 8).map((x) => x.name),
+    labels: apps.map((x) => x.name),
     datasets: [
       {
         label: 'Tempo',
-        data: apps.slice(0, 8).map((x) => toHours(x.durationMs)),
+        data: apps.map((x) => toHours(x.durationMs)),
         backgroundColor: '#00d9ff',
         borderRadius: 6,
         borderSkipped: false,
@@ -44,11 +45,11 @@ export default function Charts({ apps, sites, byDay }: Props) {
   };
 
   const siteData = {
-    labels: sites.slice(0, 8).map((x) => x.name),
+    labels: sites.map((x) => x.name),
     datasets: [
       {
-        data: sites.slice(0, 8).map((x) => toHours(x.durationMs)),
-        backgroundColor: ['#ff006e', '#ffbe0b', '#00d9ff', '#00ff88', '#ff3366', '#00ccff', '#ffaa00', '#ff1493']
+        data: sites.map((x) => toHours(x.durationMs)),
+        backgroundColor: sites.map((_, index) => palette[index % palette.length])
       }
     ]
   };

@@ -258,12 +258,12 @@ export default function DashboardPage() {
             {/* Rankings */}
             <section className="rankings-section">
               <div className="ranking-card">
-                <h3>Top Apps</h3>
+                <h3>Todos os Apps</h3>
                 <div className="ranking-list">
                   {stats.apps.length === 0 ? (
                     <p className="muted">Sem dados</p>
                   ) : (
-                    stats.apps.slice(0, 10).map((item, idx) => (
+                    stats.apps.map((item, idx) => (
                       <div key={`${item.name}-${idx}`} className="ranking-item">
                         <div className="ranking-info">
                           <span className="ranking-position">{idx + 1}</span>

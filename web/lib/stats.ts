@@ -161,8 +161,7 @@ export async function getStats(query: StatsQuery) {
 
   const apps = [...appMap.entries()]
     .map(([name, durationMs]) => ({ name, durationMs }))
-    .sort((a, b) => b.durationMs - a.durationMs)
-    .slice(0, 15);
+    .sort((a, b) => b.durationMs - a.durationMs);
 
   const sites = [...siteMap.entries()]
     .map(([name, durationMs]) => ({ name, durationMs }))

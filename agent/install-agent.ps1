@@ -8,6 +8,7 @@ param(
   [string]$UserId = 'endmin-root',
   [string]$DeviceName = $env:COMPUTERNAME,
   [int]$PollIntervalMs = 1000,
+  [int]$ForegroundSliceSeconds = 2,
   [int]$SyncIntervalSeconds = 120,
   [int]$BatchSize = 300,
   [bool]$SendFullUrl = $false,
@@ -86,6 +87,7 @@ $config = Get-Content $appSettingsPath -Raw | ConvertFrom-Json
 $config.Agent.UserId = $UserId
 $config.Agent.DeviceName = $DeviceName
 $config.Agent.PollIntervalMs = $PollIntervalMs
+$config.Agent.ForegroundSliceSeconds = $ForegroundSliceSeconds
 $config.Agent.SyncIntervalSeconds = $SyncIntervalSeconds
 $config.Agent.BatchSize = $BatchSize
 $config.Agent.ApiBaseUrl = $ApiBaseUrl

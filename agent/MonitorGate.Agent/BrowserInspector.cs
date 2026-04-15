@@ -25,11 +25,25 @@ public sealed class BrowserInspector
         ["instagram"] = "instagram.com",
         ["whatsapp"] = "web.whatsapp.com",
         ["github"] = "github.com",
+        ["gitlab"] = "gitlab.com",
+        ["stackoverflow"] = "stackoverflow.com",
+        ["twitch"] = "twitch.tv",
+        ["discord"] = "discord.com",
+        ["telegram"] = "web.telegram.org",
+        ["gmail"] = "mail.google.com",
+        ["google docs"] = "docs.google.com",
+        ["drive"] = "drive.google.com",
+        ["notion"] = "notion.so",
+        ["figma"] = "figma.com",
+        ["netflix"] = "netflix.com",
+        ["prime video"] = "primevideo.com",
         ["linkedin"] = "linkedin.com",
         ["reddit"] = "reddit.com",
         ["facebook"] = "facebook.com",
         ["tiktok"] = "tiktok.com",
         ["x.com"] = "x.com",
+        ["twitter/x"] = "x.com",
+        [" x "] = "x.com",
         ["twitter"] = "x.com"
     };
 
@@ -58,6 +72,17 @@ public sealed class BrowserInspector
             .Replace(" - Microsoft Edge", string.Empty)
             .Replace(" - Mozilla Firefox", string.Empty)
             .Trim();
+
+        // Muitas abas usam formato "Titulo - Site" ou "Site | Titulo".
+        string[] titleChunks = cleaned.Split(['-', '|', ':'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        foreach (string chunk in titleChunks)
+        {
+            Match chunkDomain = DomainRegex.Match(chunk);
+            if (chunkDomain.Success)
+            {
+                return (null, chunkDomain.Groups[1].Value.ToLowerInvariant());
+            }
+        }
 
         foreach (KeyValuePair<string, string> entry in KeywordDomains)
         {
