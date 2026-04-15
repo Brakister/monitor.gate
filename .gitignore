@@ -1,0 +1,21 @@
+# Node
+web/node_modules/
+web/.next/
+web/.vercel/
+
+# Env
+web/.env
+agent/MonitorGate.Agent/appsettings.Development.json
+
+# Dotnet
+**/bin/
+**/obj/
+
+# Local data
+*.db
+*.db-shm
+*.db-wal
+
+# OS
+.DS_Store
+Thumbs.db
