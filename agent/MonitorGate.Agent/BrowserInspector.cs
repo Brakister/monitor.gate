@@ -21,6 +21,8 @@ public sealed class BrowserInspector
 
     private static readonly Dictionary<string, string> KeywordDomains = new(StringComparer.OrdinalIgnoreCase)
     {
+        ["chatgpt"] = "chatgpt.com",
+        ["openai"] = "chatgpt.com",
         ["youtube"] = "youtube.com",
         ["instagram"] = "instagram.com",
         ["whatsapp"] = "web.whatsapp.com",

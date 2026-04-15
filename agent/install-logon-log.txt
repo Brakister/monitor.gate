@@ -20,3 +20,19 @@ Publicando agente...
 Restaurando pacotes via NuGet source: https://api.nuget.org/v3/index.json
   Determinando os projetos a serem restaurados...
   Todos os projetos estão atualizados para restauração.
+  MonitorGate.Agent -> D:\monitor.gate\agent\MonitorGate.Agent\bin\Release\net8.0-windows\win-x64\MonitorGate.Agent.dll
+  MonitorGate.Agent -> D:\monitor.gate\agent\publish\
+Copiando arquivos para pasta de instalacao...
+PS>TerminatingError(Copy-Item): "O processo não pode acessar o arquivo 'C:\Program Files\MonitorGateAgent\e_sqlite3.dll' porque ele está sendo usado por outro processo."
+Atualizando appsettings.json...
+Criando tarefa agendada no logon...
+Iniciando agente agora (sessao atual)...
+Instalacao concluida com sucesso (modo logon).
+Tarefa: \MonitorGate\MonitorGateAgent-Logon
+Usuario: SHOUKO\kamiy
+Intervalo de sync: 120 segundos
+Log de instalacao: D:\monitor.gate\agent\install-logon-log.txt
+**********************
+Fim da transcrição do Windows PowerShell
+Hora de término: 20260415135726
+**********************

@@ -29,21 +29,7 @@ const processAppNames: Record<string, string> = {
   spotify: 'Spotify'
 };
 
-const siteKeywordMap: Array<{ keyword: string; domain: string }> = [
-  { keyword: 'youtube', domain: 'youtube.com' },
-  { keyword: 'instagram', domain: 'instagram.com' },
-  { keyword: 'whatsapp', domain: 'web.whatsapp.com' },
-  { keyword: 'github', domain: 'github.com' },
-  { keyword: 'google', domain: 'google.com' },
-  { keyword: 'supabase', domain: 'supabase.com' },
-  { keyword: 'vercel', domain: 'vercel.com' },
-  { keyword: 'linkedin', domain: 'linkedin.com' },
-  { keyword: 'reddit', domain: 'reddit.com' },
-  { keyword: 'tiktok', domain: 'tiktok.com' },
-  { keyword: 'x.com', domain: 'x.com' },
-  { keyword: 'twitter', domain: 'x.com' },
-  { keyword: 'facebook', domain: 'facebook.com' }
-];
+const browserTitleSuffixes = [' - Google Chrome', ' - Microsoft Edge', ' - Mozilla Firefox'];
 
 function normalizeAppName(processName: string, appName: string): string {
   const friendlyName = processAppNames[processName.toLowerCase()];
@@ -54,7 +40,25 @@ function normalizeDomain(domain: string): string {
   return domain.toLowerCase().replace(/^www\./, '');
 }
 
-function inferSiteDomain(activity: ActivityRow): string | null {
+function normalizeBrowserTabTitle(title: string): string {
+  let cleaned = title.trim();
+
+  for (const suffix of browserTitleSuffixes) {
+    if (cleaned.toLowerCase().endsWith(suffix.toLowerCase())) {
+      cleaned = cleaned.slice(0, -suffix.length).trim();
+      break;
+    }
+  }
+
+  // Prevent noisy chart labels when tabs include long generated names.
+  if (cleaned.length > 100) {
+    return `${cleaned.slice(0, 97)}...`;
+  }
+
+  return cleaned;
+}
+
+function inferSiteLabel(activity: ActivityRow): string | null {
   if (activity.urlDomain) {
     return normalizeDomain(activity.urlDomain);
   }
@@ -63,16 +67,18 @@ function inferSiteDomain(activity: ActivityRow): string | null {
     return null;
   }
 
-  const title = activity.windowTitle.toLowerCase();
-
-  for (const item of siteKeywordMap) {
-    if (title.includes(item.keyword)) {
-      return item.domain;
-    }
+  const browserTitle = normalizeBrowserTabTitle(activity.windowTitle);
+  if (!browserTitle) {
+    return null;
   }
 
-  const domainMatch = title.match(/([a-z0-9-]+\.)+[a-z]{2,}/i);
-  return domainMatch ? normalizeDomain(domainMatch[0]) : null;
+  const domainMatch = browserTitle.match(/([a-z0-9-]+\.)+[a-z]{2,}/i);
+  if (domainMatch) {
+    return normalizeDomain(domainMatch[0]);
+  }
+
+  // If there is no domain, keep the tab title itself to avoid dropping browser activity.
+  return browserTitle;
 }
 
 function toDayRange(day?: string): { start: Date; end: Date } | null {
@@ -149,7 +155,7 @@ export async function getStats(query: StatsQuery) {
     const app = normalizeAppName(item.processName, item.appName);
     appMap.set(app, (appMap.get(app) ?? 0) + item.durationMs);
 
-    const site = inferSiteDomain(item);
+    const site = inferSiteLabel(item);
     if (site) {
       siteMap.set(site, (siteMap.get(site) ?? 0) + item.durationMs);
     }
