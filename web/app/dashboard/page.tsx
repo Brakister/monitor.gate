@@ -1,7 +1,9 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import Charts from '@/components/Charts';
+import { formatDuration } from '@/lib/timeFormat';
 
 type ApiStats = {
   totalMs: number;
@@ -25,19 +27,27 @@ const now = new Date();
 const defaultDay = now.toISOString().slice(0, 10);
 const defaultMonth = now.toISOString().slice(0, 7);
 
-const fmtHours = (ms: number) => `${(ms / 3_600_000).toFixed(2)} h`;
-
 export default function DashboardPage() {
+  const router = useRouter();
   const [token, setToken] = useState('');
-  const [login, setLogin] = useState('');
-  const [password, setPassword] = useState('');
   const [day, setDay] = useState(defaultDay);
   const [month, setMonth] = useState(defaultMonth);
   const [mode, setMode] = useState<'day' | 'month' | 'general'>('day');
   const [loading, setLoading] = useState(false);
-  const [authLoading, setAuthLoading] = useState(false);
   const [stats, setStats] = useState<ApiStats | null>(null);
   const [error, setError] = useState('');
+  const [mounted, setMounted] = useState(false);
+
+  // Verificar token ao montar
+  useEffect(() => {
+    setMounted(true);
+    const savedToken = localStorage.getItem('mg_token');
+    if (!savedToken) {
+      router.push('/login');
+    } else {
+      setToken(savedToken);
+    }
+  }, [router]);
 
   const queryString = useMemo(() => {
     if (mode === 'day') return `day=${day}`;
@@ -46,6 +56,8 @@ export default function DashboardPage() {
   }, [mode, day, month]);
 
   async function loadStats() {
+    if (!token) return;
+
     setLoading(true);
     setError('');
 
@@ -69,133 +81,170 @@ export default function DashboardPage() {
     }
   }
 
-  async function doLogin() {
-    setAuthLoading(true);
-    setError('');
-
-    try {
-      const res = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ login, password })
-      });
-
-      if (!res.ok) {
-        const payload = (await res.json().catch(() => null)) as { error?: string } | null;
-        throw new Error(payload?.error ? `${payload.error} (${res.status})` : `Login falhou (${res.status})`);
-      }
-
-      const data = (await res.json()) as { token: string };
-      setToken(data.token);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Falha de autenticação');
-    } finally {
-      setAuthLoading(false);
-    }
+  function handleLogout() {
+    localStorage.removeItem('mg_token');
+    router.push('/login');
   }
 
-  return (
-    <main className="container fade-in">
-      <section className="card" style={{ marginBottom: 16 }}>
-        <h1 style={{ fontSize: 34 }}>Dashboard de Atividades</h1>
-        <p className="muted" style={{ marginTop: 8 }}>
-          Visualizações diárias, mensais e gerais com ranking de apps e sites.
-        </p>
+  if (!mounted) return null;
 
-        <div className="grid" style={{ marginTop: 14 }}>
-          <input
-            placeholder="Login"
-            value={login}
-            onChange={(e) => setLogin(e.target.value)}
-          />
-          <input
-            placeholder="Senha"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            type="password"
-          />
-          <button className="secondary" onClick={doLogin} disabled={!login || !password || authLoading}>
-            {authLoading ? 'Entrando...' : 'Entrar e gerar token'}
+  return (
+    <main className="dashboard-container">
+      {/* Header */}
+      <header className="dashboard-header">
+        <div className="header-content">
+          <div>
+            <h1>Dashboard</h1>
+            <p className="muted">Análise de uso de aplicativos e sites</p>
+          </div>
+          <button className="logout-button" onClick={handleLogout}>
+            Sair
           </button>
-          <input
-            placeholder="JWT Token"
-            value={token}
-            onChange={(e) => setToken(e.target.value)}
-            type="password"
-          />
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            <button className={mode === 'day' ? 'primary' : ''} onClick={() => setMode('day')}>
-              Dia
+        </div>
+      </header>
+
+      {/* Controls */}
+      <div className="dashboard-content">
+        <section className="controls-section">
+          <div className="tabs">
+            <button
+              className={`tab ${mode === 'day' ? 'active' : ''}`}
+              onClick={() => {
+                setMode('day');
+                setStats(null);
+              }}
+            >
+              Por Dia
             </button>
-            <button className={mode === 'month' ? 'primary' : ''} onClick={() => setMode('month')}>
-              Mês
+            <button
+              className={`tab ${mode === 'month' ? 'active' : ''}`}
+              onClick={() => {
+                setMode('month');
+                setStats(null);
+              }}
+            >
+              Por Mês
             </button>
-            <button className={mode === 'general' ? 'secondary' : ''} onClick={() => setMode('general')}>
+            <button
+              className={`tab ${mode === 'general' ? 'active' : ''}`}
+              onClick={() => {
+                setMode('general');
+                setStats(null);
+              }}
+            >
               Geral
             </button>
           </div>
-          {mode === 'day' && <input type="date" value={day} onChange={(e) => setDay(e.target.value)} />}
-          {mode === 'month' && <input type="month" value={month} onChange={(e) => setMonth(e.target.value)} />}
-          <button className="primary" onClick={loadStats} disabled={!token || loading}>
-            {loading ? 'Carregando...' : 'Atualizar'}
-          </button>
-        </div>
+
+          <div className="controls-group">
+            {mode === 'day' && (
+              <input
+                type="date"
+                value={day}
+                onChange={(e) => setDay(e.target.value)}
+                className="date-input"
+              />
+            )}
+            {mode === 'month' && (
+              <input
+                type="month"
+                value={month}
+                onChange={(e) => setMonth(e.target.value)}
+                className="date-input"
+              />
+            )}
+            <button
+              className="refresh-button"
+              onClick={loadStats}
+              disabled={loading}
+            >
+              {loading ? '⟳ Carregando...' : '⟳ Atualizar'}
+            </button>
+          </div>
+        </section>
 
         {error && (
-          <p style={{ color: 'var(--danger)', marginTop: 10 }}>
-            {error}
-          </p>
+          <div className="error-banner">
+            <strong>Erro:</strong> {error}
+          </div>
         )}
-      </section>
 
-      {stats && (
-        <>
-          <section className="grid grid-4" style={{ marginBottom: 16 }}>
-            <article className="card">
-              <p className="muted">Tempo total</p>
-              <p className="metric">{fmtHours(stats.totalMs)}</p>
-            </article>
-            <article className="card">
-              <p className="muted">Média diária</p>
-              <p className="metric">{fmtHours(stats.averageDailyMs)}</p>
-            </article>
-            <article className="card">
-              <p className="muted">Apps distintos</p>
-              <p className="metric">{stats.apps.length}</p>
-            </article>
-            <article className="card">
-              <p className="muted">Sites distintos</p>
-              <p className="metric">{stats.sites.length}</p>
-            </article>
-          </section>
-
-          <section className="grid grid-2" style={{ marginBottom: 16 }}>
-            <Charts apps={stats.apps} sites={stats.sites} byDay={stats.byDay} />
-          </section>
-
-          <section className="card">
-            <h3 style={{ marginBottom: 12 }}>Ranking Geral</h3>
-            <div className="grid grid-2">
-              <div>
-                <p className="muted" style={{ marginBottom: 8 }}>Apps</p>
-                {stats.apps.slice(0, 10).map((item, idx) => (
-                  <p key={`${item.name}-${idx}`} style={{ marginBottom: 6 }}>
-                    {idx + 1}. {item.name} - {fmtHours(item.durationMs)}
-                  </p>
-                ))}
+        {/* Stats Cards */}
+        {stats && (
+          <>
+            <section className="stats-grid">
+              <div className="stat-card">
+                <p className="stat-label">Tempo Total</p>
+                <p className="stat-value">{formatDuration(stats.totalMs)}</p>
               </div>
-              <div>
-                <p className="muted" style={{ marginBottom: 8 }}>Sites</p>
-                {stats.sites.slice(0, 10).map((item, idx) => (
-                  <p key={`${item.name}-${idx}`} style={{ marginBottom: 6 }}>
-                    {idx + 1}. {item.name} - {fmtHours(item.durationMs)}
-                  </p>
-                ))}
+              <div className="stat-card">
+                <p className="stat-label">Média Diária</p>
+                <p className="stat-value">{formatDuration(stats.averageDailyMs)}</p>
               </div>
-            </div>
-          </section>
-        </>
-      )}
+              <div className="stat-card">
+                <p className="stat-label">Apps</p>
+                <p className="stat-value">{stats.apps.length}</p>
+              </div>
+              <div className="stat-card">
+                <p className="stat-label">Sites</p>
+                <p className="stat-value">{stats.sites.length}</p>
+              </div>
+            </section>
+
+            {/* Charts Section */}
+            <section className="charts-section">
+              <Charts apps={stats.apps} sites={stats.sites} byDay={stats.byDay} />
+            </section>
+
+            {/* Rankings */}
+            <section className="rankings-section">
+              <div className="ranking-card">
+                <h3>Top Apps</h3>
+                <div className="ranking-list">
+                  {stats.apps.length === 0 ? (
+                    <p className="muted">Sem dados</p>
+                  ) : (
+                    stats.apps.slice(0, 10).map((item, idx) => (
+                      <div key={`${item.name}-${idx}`} className="ranking-item">
+                        <div className="ranking-info">
+                          <span className="ranking-position">{idx + 1}</span>
+                          <span className="ranking-name">{item.name}</span>
+                        </div>
+                        <span className="ranking-time">{formatDuration(item.durationMs)}</span>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+
+              <div className="ranking-card">
+                <h3>Top Sites</h3>
+                <div className="ranking-list">
+                  {stats.sites.length === 0 ? (
+                    <p className="muted">Sem dados</p>
+                  ) : (
+                    stats.sites.slice(0, 10).map((item, idx) => (
+                      <div key={`${item.name}-${idx}`} className="ranking-item">
+                        <div className="ranking-info">
+                          <span className="ranking-position">{idx + 1}</span>
+                          <span className="ranking-name">{item.name}</span>
+                        </div>
+                        <span className="ranking-time">{formatDuration(item.durationMs)}</span>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            </section>
+          </>
+        )}
+
+        {!stats && !loading && !error && (
+          <div className="empty-state">
+            <p>Selecione um período e clique em Atualizar para visualizar os dados</p>
+          </div>
+        )}
+      </div>
     </main>
   );
 }

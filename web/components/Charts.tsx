@@ -10,6 +10,7 @@ import {
   Tooltip
 } from 'chart.js';
 import { Bar, Doughnut } from 'react-chartjs-2';
+import { formatDuration } from '@/lib/timeFormat';
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, ArcElement, Tooltip, Legend);
 
@@ -31,9 +32,11 @@ export default function Charts({ apps, sites, byDay }: Props) {
     labels: apps.slice(0, 8).map((x) => x.name),
     datasets: [
       {
-        label: 'Horas',
+        label: 'Tempo',
         data: apps.slice(0, 8).map((x) => toHours(x.durationMs)),
-        backgroundColor: ['#ff7a18', '#ffa24c', '#0f9d8f', '#53c3b8', '#1f6feb', '#6ea8fe', '#d7263d', '#ff6f91']
+        backgroundColor: '#3b82f6',
+        borderRadius: 8,
+        borderSkipped: false
       }
     ]
   };
@@ -43,40 +46,94 @@ export default function Charts({ apps, sites, byDay }: Props) {
     datasets: [
       {
         data: sites.slice(0, 8).map((x) => toHours(x.durationMs)),
-        backgroundColor: ['#0f9d8f', '#53c3b8', '#ff7a18', '#ffa24c', '#1f6feb', '#6ea8fe', '#f2c14e', '#d7263d']
+        backgroundColor: ['#ef4444', '#f97316', '#eab308', '#22c55e', '#06b6d4', '#0ea5e9', '#6366f1', '#8b5cf6']
       }
     ]
   };
 
   const timelineData = {
-    labels: byDay.map((x) => x.date),
+    labels: byDay.map((x) => {
+      const date = new Date(x.date);
+      return date.toLocaleDateString('pt-BR', { weekday: 'short', month: 'short', day: 'numeric' });
+    }),
     datasets: [
       {
-        label: 'Uso total por dia (h)',
+        label: 'Tempo por dia',
         data: byDay.map((x) => toHours(x.durationMs)),
-        backgroundColor: '#1f6feb'
+        backgroundColor: '#3b82f6',
+        borderRadius: 8,
+        borderSkipped: false
       }
     ]
   };
 
   return (
     <>
-      <div className="card">
+      <div className="chart-card">
         <h3>Apps Mais Usados</h3>
-        <div style={{ marginTop: 12 }}>
-          <Bar data={appData} options={{ responsive: true, maintainAspectRatio: false }} height={260} />
+        <div className="chart-container">
+          <Bar
+            data={appData}
+            options={{
+              responsive: true,
+              maintainAspectRatio: false,
+              plugins: {
+                legend: { display: false }
+              },
+              scales: {
+                y: {
+                  beginAtZero: true,
+                  title: { display: true, text: 'Horas' }
+                }
+              }
+            }}
+            height={260}
+          />
         </div>
       </div>
-      <div className="card">
+
+      <div className="chart-card">
         <h3>Sites Mais Visitados</h3>
-        <div style={{ marginTop: 12, maxWidth: 360 }}>
-          <Doughnut data={siteData} options={{ responsive: true, maintainAspectRatio: true }} />
+        <div className="chart-container-donut">
+          <Doughnut
+            data={siteData}
+            options={{
+              responsive: true,
+              maintainAspectRatio: true,
+              plugins: {
+                legend: {
+                  position: 'bottom',
+                  labels: {
+                    padding: 16,
+                    font: { size: 13 }
+                  }
+                }
+              }
+            }}
+          />
         </div>
       </div>
-      <div className="card">
-        <h3>Timeline Diária</h3>
-        <div style={{ marginTop: 12 }}>
-          <Bar data={timelineData} options={{ responsive: true, maintainAspectRatio: false }} height={240} />
+
+      <div className="chart-card chart-card-full">
+        <h3>Timeline</h3>
+        <div className="chart-container">
+          <Bar
+            data={timelineData}
+            options={{
+              responsive: true,
+              maintainAspectRatio: false,
+              plugins: {
+                legend: { display: false }
+              },
+              scales: {
+                y: {
+                  beginAtZero: true,
+                  title: { display: true, text: 'Horas' }
+                }
+              }
+            }}
+            height={240}
+          />
         </div>
       </div>
     </>
