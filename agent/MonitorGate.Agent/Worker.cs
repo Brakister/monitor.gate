@@ -5,6 +5,7 @@ using Microsoft.Extensions.Logging;
 public sealed class Worker : BackgroundService
 {
     private readonly ILogger<Worker> _logger;
+    private readonly AgentFileLog _fileLog;
     private readonly ActivityRepository _repository;
     private readonly WindowTracker _tracker;
     private readonly SyncClient _syncClient;
@@ -14,11 +15,13 @@ public sealed class Worker : BackgroundService
     public Worker(
         ILogger<Worker> logger,
         IConfiguration configuration,
+        AgentFileLog fileLog,
         ActivityRepository repository,
         WindowTracker tracker,
         SyncClient syncClient)
     {
         _logger = logger;
+        _fileLog = fileLog;
         _repository = repository;
         _tracker = tracker;
         _syncClient = syncClient;
@@ -28,6 +31,8 @@ public sealed class Worker : BackgroundService
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         _logger.LogInformation("MonitorGate Agent iniciado. SessionId={SessionId}", _sessionId);
+        _fileLog.Info($"Agent started. sessionId={_sessionId} userId={_options.UserId} device={_options.DeviceName} syncEvery={_options.SyncIntervalSeconds}s");
+        _fileLog.Info($"Sync log path: {_fileLog.LogPath}");
 
         TimeSpan pollInterval = TimeSpan.FromMilliseconds(Math.Max(250, _options.PollIntervalMs));
         TimeSpan syncInterval = TimeSpan.FromSeconds(Math.Max(30, _options.SyncIntervalSeconds));
@@ -35,7 +40,12 @@ public sealed class Worker : BackgroundService
 
         while (!stoppingToken.IsCancellationRequested)
         {
-            ActivitySample? sample = _tracker.Poll(_sessionId, _options.UserId, _options.DeviceName);
+            ActivitySample? sample = _tracker.Poll(
+                _sessionId,
+                _options.UserId,
+                _options.DeviceName,
+                _options.ForegroundSliceSeconds
+            );
             if (sample is not null)
             {
                 _repository.Insert(sample);
@@ -67,17 +77,20 @@ public sealed class Worker : BackgroundService
     {
         if (string.IsNullOrWhiteSpace(_options.ApiBaseUrl) || string.IsNullOrWhiteSpace(_options.ApiToken))
         {
+            _fileLog.Warn("Sync skipped: ApiBaseUrl or ApiToken is empty.");
             return;
         }
 
         IReadOnlyList<ActivitySample> pending = _repository.GetPending(_options.BatchSize);
         if (pending.Count == 0)
         {
+            _fileLog.Info("Sync skipped: no pending events.");
             return;
         }
 
         try
         {
+            _fileLog.Info($"Sync attempt: pending={pending.Count} batchSize={_options.BatchSize} endpoint={_options.ApiBaseUrl.TrimEnd('/')}/api/activity");
             bool ok = await _syncClient.SendBatchAsync(
                 _options.ApiBaseUrl,
                 _options.ApiToken,
@@ -90,11 +103,17 @@ public sealed class Worker : BackgroundService
             if (ok)
             {
                 _repository.MarkSynced(pending.Where(x => x.Id.HasValue).Select(x => x.Id!.Value));
+                _fileLog.Info($"Sync success: sent={pending.Count}");
+            }
+            else
+            {
+                _fileLog.Warn($"Sync failed with non-success HTTP status. pending={pending.Count}");
             }
         }
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Falha no sync remoto.");
+            _fileLog.Error($"Sync exception: {ex.GetType().Name} - {ex.Message}");
         }
     }
 }

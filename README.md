@@ -37,6 +37,8 @@ Pré-requisitos: Node 18+ e PostgreSQL.
    - `ADMIN_USERNAME`
    - `ADMIN_PASSWORD`
    - `ADMIN_EMAIL`
+
+Se a senha do banco tiver caracteres especiais como `@`, `:`, `/`, `#` ou `?`, codifique na URL. Exemplo: `@` vira `%40`.
 3. Instale dependências:
    - `npm install`
 4. Gere o cliente Prisma:
@@ -92,6 +94,28 @@ install-agent.bat -ApiBaseUrl "https://SEU-APP.vercel.app" -ApiToken "SEU_INGEST
 ```
 
 O `install-agent.bat` eleva sozinho para Administrador quando necessario e executa o script PowerShell por baixo.
+
+### Modo recomendado para captura de janela ativa (Logon do usuario)
+
+Como `GetForegroundWindow` depende da sessao interativa do desktop, o modo recomendado e iniciar no logon do usuario (em vez de apenas Windows Service em Session 0).
+
+- Arquivo: `agent/install-agent-logon.bat`
+- Script: `agent/install-agent-logon.ps1`
+
+Uso rapido:
+
+```bat
+cd /d D:\monitor.gate\agent
+install-agent-logon.bat -ApiBaseUrl "https://SEU-APP.vercel.app" -ApiToken "SEU_INGEST_API_TOKEN" -SyncIntervalSeconds 120 -PollIntervalMs 1000 -BatchSize 300 -SendFullUrl:$false
+```
+
+Esse instalador:
+
+- Publica e copia o agente para `Program Files`.
+- Atualiza `appsettings.json`.
+- Remove o servico legado `MonitorGateAgent` para evitar duplicidade.
+- Cria tarefa agendada em `\MonitorGate\MonitorGateAgent-Logon` no logon do usuario atual.
+- Inicia o agente imediatamente na sessao atual.
 
 Exemplo com parametros de 24/7:
 

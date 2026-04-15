@@ -9,6 +9,7 @@ IHost host = Host.CreateDefaultBuilder(args)
     .ConfigureServices(services =>
     {
         services.AddHostedService<Worker>();
+        services.AddSingleton<AgentFileLog>();
         services.AddSingleton<ActivityRepository>();
         services.AddSingleton<WindowTracker>();
         services.AddSingleton<BrowserInspector>();

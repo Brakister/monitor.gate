@@ -10,7 +10,7 @@ public sealed class WindowTracker
         _startedAtUtc = DateTimeOffset.UtcNow;
     }
 
-    public ActivitySample? Poll(string sessionId, string userId, string deviceName)
+    public ActivitySample? Poll(string sessionId, string userId, string deviceName, int foregroundSliceSeconds)
     {
         DateTimeOffset now = DateTimeOffset.UtcNow;
         ForegroundState? latest = NativeMethods.ReadForegroundWindow(_browserInspector);
@@ -32,6 +32,32 @@ public sealed class WindowTracker
 
         if (!changed)
         {
+            int safeSliceSeconds = Math.Max(2, foregroundSliceSeconds);
+            long elapsedMs = (long)(now - _startedAtUtc).TotalMilliseconds;
+            long sliceMs = safeSliceSeconds * 1000L;
+
+            if (elapsedMs >= sliceMs)
+            {
+                ActivitySample sliceSample = new(
+                    Id: null,
+                    SessionId: sessionId,
+                    UserId: userId,
+                    DeviceName: deviceName,
+                    AppName: _current.AppName,
+                    ProcessName: _current.ProcessName,
+                    WindowTitle: _current.WindowTitle,
+                    Url: _current.Url,
+                    UrlDomain: _current.UrlDomain,
+                    StartUtc: _startedAtUtc,
+                    EndUtc: now,
+                    DurationMs: elapsedMs,
+                    Synced: false
+                );
+
+                _startedAtUtc = now;
+                return sliceSample;
+            }
+
             return null;
         }
 

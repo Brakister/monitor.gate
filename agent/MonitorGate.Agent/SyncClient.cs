@@ -57,7 +57,13 @@ public sealed class SyncClient
         request.Content = content;
 
         using HttpResponseMessage response = await _httpClient.SendAsync(request, cancellationToken);
-        return response.IsSuccessStatusCode;
+        if (!response.IsSuccessStatusCode)
+        {
+            string body = await response.Content.ReadAsStringAsync(cancellationToken);
+            throw new HttpRequestException($"Sync HTTP {(int)response.StatusCode} {response.ReasonPhrase}: {body}");
+        }
+
+        return true;
     }
 
     private static byte[] Compress(byte[] input)

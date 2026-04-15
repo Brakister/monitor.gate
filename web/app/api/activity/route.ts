@@ -11,8 +11,8 @@ const activityItem = z.object({
   windowTitle: z.string().min(1),
   url: z.string().url().optional().nullable(),
   urlDomain: z.string().optional().nullable(),
-  startUtc: z.string().datetime(),
-  endUtc: z.string().datetime(),
+  startUtc: z.string().datetime({ offset: true }),
+  endUtc: z.string().datetime({ offset: true }),
   durationMs: z.number().int().min(50).max(86_400_000)
 });
 
