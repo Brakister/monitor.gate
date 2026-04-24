@@ -31,42 +31,46 @@ const defaultMonth = now.toISOString().slice(0, 7);
 
 function formatDateTime(value: string | null): string {
   if (!value) return '--';
-
   const parsed = new Date(value);
   if (Number.isNaN(parsed.getTime())) return '--';
-
   return parsed.toLocaleString('pt-BR', {
     day: '2-digit',
     month: '2-digit',
-    year: 'numeric',
+    year: '2-digit',
     hour: '2-digit',
     minute: '2-digit'
   });
 }
 
-function getSyncStatus(lastPostUtc: string | null): {
-  label: string;
-  className: string;
-} {
-  if (!lastPostUtc) {
-    return { label: 'Sem post', className: 'sync-badge sync-badge-offline' };
-  }
+type SyncState = { label: string; cls: 'online' | 'warn' | 'offline' };
 
+function getSyncStatus(lastPostUtc: string | null): SyncState {
+  if (!lastPostUtc) return { label: 'Sem dados', cls: 'offline' };
   const parsed = new Date(lastPostUtc);
-  if (Number.isNaN(parsed.getTime())) {
-    return { label: 'Inválido', className: 'sync-badge sync-badge-offline' };
-  }
+  if (Number.isNaN(parsed.getTime())) return { label: 'Inválido', cls: 'offline' };
+  const elapsed = Date.now() - parsed.getTime();
+  if (elapsed <= 3 * 60_000)  return { label: '● Online',   cls: 'online' };
+  if (elapsed <= 10 * 60_000) return { label: '● Atenção',  cls: 'warn' };
+  return { label: '● Atrasado', cls: 'offline' };
+}
 
-  const elapsedMs = Date.now() - parsed.getTime();
-  if (elapsedMs <= 3 * 60 * 1000) {
-    return { label: 'Online', className: 'sync-badge sync-badge-online' };
+function pageTitle(mode: 'day' | 'month' | 'general', day: string, month: string): string {
+  if (mode === 'day') {
+    const d = new Date(day + 'T12:00:00');
+    return d.toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' });
   }
-
-  if (elapsedMs <= 10 * 60 * 1000) {
-    return { label: 'Atenção', className: 'sync-badge sync-badge-warn' };
+  if (mode === 'month') {
+    const [y, m] = month.split('-');
+    const d = new Date(Number(y), Number(m) - 1, 1);
+    return d.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
   }
+  return 'Visão geral';
+}
 
-  return { label: 'Atrasado', className: 'sync-badge sync-badge-offline' };
+function pageSubtitle(mode: 'day' | 'month' | 'general'): string {
+  if (mode === 'day')     return 'uso de apps e sites · visão diária';
+  if (mode === 'month')   return 'uso de apps e sites · visão mensal';
+  return 'uso de apps e sites · todo o período';
 }
 
 export default function DashboardPage() {
@@ -80,44 +84,34 @@ export default function DashboardPage() {
   const [error, setError] = useState('');
   const [mounted, setMounted] = useState(false);
 
-  const syncStatus = useMemo(() => getSyncStatus(stats?.lastPostUtc ?? null), [stats?.lastPostUtc]);
+  const sync = useMemo(() => getSyncStatus(stats?.lastPostUtc ?? null), [stats?.lastPostUtc]);
 
-  // Verificar token ao montar
   useEffect(() => {
     setMounted(true);
-    const savedToken = localStorage.getItem('mg_token');
-    if (!savedToken) {
+    const saved = localStorage.getItem('mg_token');
+    if (!saved) {
       router.push('/login');
     } else {
-      setToken(savedToken);
+      setToken(saved);
     }
   }, [router]);
 
   const queryString = useMemo(() => {
-    if (mode === 'day') return `day=${day}`;
+    if (mode === 'day')   return `day=${day}`;
     if (mode === 'month') return `month=${month}`;
     return '';
   }, [mode, day, month]);
 
   async function loadStats() {
     if (!token) return;
-
     setLoading(true);
     setError('');
-
     try {
       const res = await fetch(`/api/stats${queryString ? `?${queryString}` : ''}`, {
-        headers: {
-          Authorization: `Bearer ${token}`
-        }
+        headers: { Authorization: `Bearer ${token}` }
       });
-
-      if (!res.ok) {
-        throw new Error(`Erro ${res.status}`);
-      }
-
-      const data = (await res.json()) as ApiStats;
-      setStats(data);
+      if (!res.ok) throw new Error(`Erro ${res.status}`);
+      setStats((await res.json()) as ApiStats);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Falha ao carregar estatísticas');
     } finally {
@@ -125,168 +119,227 @@ export default function DashboardPage() {
     }
   }
 
+  function switchMode(m: 'day' | 'month' | 'general') {
+    setMode(m);
+    setStats(null);
+    setError('');
+  }
+
   function handleLogout() {
     localStorage.removeItem('mg_token');
     router.push('/login');
   }
 
+  // Compute max duration for ranking bars
+  const maxAppMs   = stats?.apps[0]?.durationMs  ?? 1;
+  const maxSiteMs  = stats?.sites[0]?.durationMs ?? 1;
+
   if (!mounted) return null;
 
   return (
-    <main className="dashboard-container">
-      {/* Header */}
+    <div className="dashboard-wrapper">
+      {/* ── Header ─────────────────────────────────────────────── */}
       <header className="dashboard-header">
-        <div className="header-content">
-          <div>
-            <h1>Dashboard</h1>
-            <p className="muted">Análise de uso de aplicativos e sites</p>
-          </div>
-          <button className="logout-button" onClick={handleLogout}>
-            Sair
-          </button>
+        <div className="header-logo">
+          <div className="header-logo-dot" />
+          MonitorGate
+        </div>
+
+        <div className="header-right">
+          {stats && (
+            <div className="sync-pill">
+              <div className={`sync-dot ${sync.cls}`} />
+              {sync.cls === 'online'
+                ? `Online · ${formatDateTime(stats.lastPostUtc)}`
+                : `${sync.label} · ${formatDateTime(stats.lastPostUtc)}`}
+            </div>
+          )}
+          <button className="logout-button" onClick={handleLogout}>Sair</button>
         </div>
       </header>
 
-      {/* Controls */}
-      <div className="dashboard-content">
-        <section className="controls-section">
-          <div className="tabs">
-            <button
-              className={`tab ${mode === 'day' ? 'active' : ''}`}
-              onClick={() => {
-                setMode('day');
-                setStats(null);
-              }}
-            >
-              Por Dia
-            </button>
-            <button
-              className={`tab ${mode === 'month' ? 'active' : ''}`}
-              onClick={() => {
-                setMode('month');
-                setStats(null);
-              }}
-            >
-              Por Mês
-            </button>
-            <button
-              className={`tab ${mode === 'general' ? 'active' : ''}`}
-              onClick={() => {
-                setMode('general');
-                setStats(null);
-              }}
-            >
-              Geral
-            </button>
-          </div>
+      <div className="dashboard-body">
+        {/* ── Sidebar ──────────────────────────────────────────── */}
+        <aside className="dashboard-sidebar">
+          <p className="sidebar-section-label">Período</p>
 
-          <div className="controls-group">
+          <button
+            className={`sidebar-nav-item ${mode === 'day' ? 'active' : ''}`}
+            onClick={() => switchMode('day')}
+          >
+            <svg className="sidebar-icon" viewBox="0 0 14 14" fill="none">
+              <rect x="1" y="2" width="12" height="11" rx="1.5" stroke="currentColor" strokeWidth="1.2" />
+              <path d="M1 5h12" stroke="currentColor" strokeWidth="1.2" />
+              <path d="M4.5 1v2M9.5 1v2" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
+            </svg>
+            Por dia
+          </button>
+
+          <button
+            className={`sidebar-nav-item ${mode === 'month' ? 'active' : ''}`}
+            onClick={() => switchMode('month')}
+          >
+            <svg className="sidebar-icon" viewBox="0 0 14 14" fill="none">
+              <path d="M2 7h10M7 2v10" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
+              <circle cx="7" cy="7" r="5.5" stroke="currentColor" strokeWidth="1.2" />
+            </svg>
+            Por mês
+          </button>
+
+          <button
+            className={`sidebar-nav-item ${mode === 'general' ? 'active' : ''}`}
+            onClick={() => switchMode('general')}
+          >
+            <svg className="sidebar-icon" viewBox="0 0 14 14" fill="none">
+              <path d="M1 10l3-4 3 2 3-5 3 3" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+            Geral
+          </button>
+
+          <hr className="sidebar-hr" />
+
+          <div className="sidebar-filters">
+            <span className="sidebar-filter-label">Filtro</span>
+
             {mode === 'day' && (
               <input
                 type="date"
+                className="date-input"
                 value={day}
                 onChange={(e) => setDay(e.target.value)}
-                className="date-input"
               />
             )}
             {mode === 'month' && (
               <input
                 type="month"
+                className="date-input"
                 value={month}
                 onChange={(e) => setMonth(e.target.value)}
-                className="date-input"
               />
             )}
+
             <button
               className="refresh-button"
               onClick={loadStats}
               disabled={loading}
             >
-              {loading ? '⟳ Carregando...' : '⟳ Atualizar'}
+              {loading ? 'Carregando…' : 'Atualizar'}
             </button>
           </div>
-        </section>
 
-        {error && (
-          <div className="error-banner">
-            <strong>Erro:</strong> {error}
+          {stats && (
+            <div className="sidebar-meta">
+              <p className="sidebar-meta-row">Último post</p>
+              <p className="sidebar-meta-row value">{formatDateTime(stats.lastPostUtc)}</p>
+              <p className="sidebar-meta-row">Sessão iniciada</p>
+              <p className="sidebar-meta-row value">{formatDateTime(stats.sessionStartUtc)}</p>
+            </div>
+          )}
+        </aside>
+
+        {/* ── Main content ─────────────────────────────────────── */}
+        <main className="dashboard-content">
+
+          {/* Page head */}
+          <div className="page-head">
+            <div>
+              <h1 className="page-title">{pageTitle(mode, day, month)}</h1>
+              <p className="page-subtitle">{pageSubtitle(mode)}</p>
+            </div>
+            {stats && (
+              <span className={`sync-badge ${sync.cls}`}>{sync.label}</span>
+            )}
           </div>
-        )}
 
-        {/* Stats Cards */}
-        {stats && (
-          <>
-            <section className="stats-grid">
-              <div className="stat-card">
-                <p className="stat-label">Tempo Total</p>
-                <p className="stat-value">{formatDuration(stats.totalMs)}</p>
-              </div>
-              <div className="stat-card">
-                <p className="stat-label">Média Diária</p>
-                <p className="stat-value">{formatDuration(stats.averageDailyMs)}</p>
-              </div>
-              <div className="stat-card">
-                <p className="stat-label">Apps</p>
-                <p className="stat-value">{stats.apps.length}</p>
-              </div>
-              <div className="stat-card">
-                <p className="stat-label">Sites</p>
-                <p className="stat-value">{stats.sites.length}</p>
-              </div>
-              <div className="stat-card sync-status-card">
-                <p className="stat-label">Sincronização</p>
-                <div className="sync-status-head">
-                  <span>Status</span>
-                  <span className={syncStatus.className}>{syncStatus.label}</span>
+          {/* Error */}
+          {error && (
+            <div className="error-banner">
+              <strong>Erro:</strong> {error}
+            </div>
+          )}
+
+          {/* Stats */}
+          {stats && (
+            <>
+              <div className="stats-row">
+                <div className="stat-block">
+                  <p className="stat-name">Tempo total</p>
+                  <p className="stat-value">{formatDuration(stats.totalMs)}</p>
                 </div>
-                <div className="sync-status-row">
-                  <span>Início da sessão</span>
-                  <strong>{formatDateTime(stats.sessionStartUtc)}</strong>
+                <div className="stat-block">
+                  <p className="stat-name">Média diária</p>
+                  <p className="stat-value">{formatDuration(stats.averageDailyMs)}</p>
                 </div>
-                <div className="sync-status-row">
-                  <span>Último post</span>
-                  <strong>{formatDateTime(stats.lastPostUtc)}</strong>
+                <div className="stat-block">
+                  <p className="stat-name">Apps</p>
+                  <p className="stat-value">{stats.apps.length}</p>
+                  {stats.apps[0] && (
+                    <p className="stat-sub">mais: {stats.apps[0].name}</p>
+                  )}
+                </div>
+                <div className="stat-block">
+                  <p className="stat-name">Sites</p>
+                  <p className="stat-value">{stats.sites.length}</p>
+                  {stats.sites[0] && (
+                    <p className="stat-sub">mais: {stats.sites[0].name}</p>
+                  )}
                 </div>
               </div>
-            </section>
 
-            {/* Charts Section */}
-            <section className="charts-section">
-              <Charts apps={stats.apps} sites={stats.sites} byDay={stats.byDay} />
-            </section>
+              {/* Charts */}
+              <div className="charts-section">
+                <Charts apps={stats.apps} sites={stats.sites} byDay={stats.byDay} />
+              </div>
 
-            {/* Rankings */}
-            <section className="rankings-section">
-              <div className="ranking-card">
-                <h3>Todos os Apps</h3>
-                <div className="ranking-list">
+              {/* Rankings */}
+              <div className="rankings-section">
+                {/* Apps ranking */}
+                <div className="ranking-card">
+                  <div className="ranking-card-head">
+                    <span className="ranking-card-title">Apps</span>
+                    <span className="ranking-card-count">{stats.apps.length} no total</span>
+                  </div>
                   {stats.apps.length === 0 ? (
-                    <p className="muted">Sem dados</p>
+                    <p className="muted" style={{ padding: '20px' }}>Sem dados</p>
                   ) : (
                     stats.apps.map((item, idx) => (
-                      <div key={`${item.name}-${idx}`} className="ranking-item">
-                        <div className="ranking-info">
-                          <span className="ranking-position">{idx + 1}</span>
-                          <span className="ranking-name">{item.name}</span>
+                      <div key={`app-${item.name}-${idx}`} className="ranking-item">
+                        <span className="ranking-position">{idx + 1}</span>
+                        <div className="ranking-bar-wrap">
+                          <div className="ranking-name">{item.name}</div>
+                          <div className="ranking-bar-bg">
+                            <div
+                              className="ranking-bar-fill"
+                              style={{ width: `${(item.durationMs / maxAppMs) * 100}%` }}
+                            />
+                          </div>
                         </div>
                         <span className="ranking-time">{formatDuration(item.durationMs)}</span>
                       </div>
                     ))
                   )}
                 </div>
-              </div>
 
-              <div className="ranking-card">
-                <h3>Todos os Sites</h3>
-                <div className="ranking-list">
+                {/* Sites ranking */}
+                <div className="ranking-card">
+                  <div className="ranking-card-head">
+                    <span className="ranking-card-title">Sites</span>
+                    <span className="ranking-card-count">{stats.sites.length} no total</span>
+                  </div>
                   {stats.sites.length === 0 ? (
-                    <p className="muted">Sem dados</p>
+                    <p className="muted" style={{ padding: '20px' }}>Sem dados</p>
                   ) : (
                     stats.sites.map((item, idx) => (
-                      <div key={`${item.name}-${idx}`} className="ranking-item">
-                        <div className="ranking-info">
-                          <span className="ranking-position">{idx + 1}</span>
-                          <span className="ranking-name">{item.name}</span>
+                      <div key={`site-${item.name}-${idx}`} className="ranking-item">
+                        <span className="ranking-position">{idx + 1}</span>
+                        <div className="ranking-bar-wrap">
+                          <div className="ranking-name">{item.name}</div>
+                          <div className="ranking-bar-bg">
+                            <div
+                              className="ranking-bar-fill"
+                              style={{ width: `${(item.durationMs / maxSiteMs) * 100}%` }}
+                            />
+                          </div>
                         </div>
                         <span className="ranking-time">{formatDuration(item.durationMs)}</span>
                       </div>
@@ -294,16 +347,20 @@ export default function DashboardPage() {
                   )}
                 </div>
               </div>
-            </section>
-          </>
-        )}
+            </>
+          )}
 
-        {!stats && !loading && !error && (
-          <div className="empty-state">
-            <p>Selecione um período e clique em Atualizar para visualizar os dados</p>
-          </div>
-        )}
+          {/* Empty state */}
+          {!stats && !loading && !error && (
+            <div className="empty-state">
+              <p className="empty-state-title">Nenhum dado carregado</p>
+              <p className="empty-state-sub">
+                Selecione um período e clique em Atualizar
+              </p>
+            </div>
+          )}
+        </main>
       </div>
-    </main>
+    </div>
   );
 }

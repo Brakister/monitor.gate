@@ -26,56 +26,96 @@ type Props = {
 };
 
 const toHours = (ms: number) => Math.round((ms / 3_600_000) * 100) / 100;
-const palette = ['#ff006e', '#ffbe0b', '#00d9ff', '#00ff88', '#ff3366', '#00ccff', '#ffaa00', '#ff1493'];
+
+// Warm monochromatic palette matching --accent (#c8956a)
+const donutPalette = [
+  '#c8956a', // accent
+  '#9e7252',
+  '#7a5840',
+  '#573f2f',
+  '#3d2d21',
+  '#2a1f17',
+  '#1c1410',
+  '#110d09'
+];
+
+// Shared chart options
+const axisStyle = {
+  color: 'rgba(122, 119, 111, 0.9)',
+  font: { family: "'DM Mono', monospace", size: 11 }
+} as const;
+
+const gridStyle = { color: 'rgba(255, 255, 255, 0.05)' };
+
+const tooltipStyle = {
+  backgroundColor: '#1d1d1a',
+  borderColor: 'rgba(255, 255, 255, 0.08)',
+  borderWidth: 1,
+  titleColor: '#d8d4cd',
+  bodyColor: '#7a776f',
+  titleFont: { family: "'DM Sans', sans-serif", size: 12 },
+  bodyFont: { family: "'DM Mono', monospace", size: 11 },
+  padding: 10,
+  cornerRadius: 4
+};
 
 export default function Charts({ apps, sites, byDay }: Props) {
+  /* ── Apps bar chart ──────────────────────────────────────────── */
   const appData = {
-    labels: apps.map((x) => x.name),
+    labels: apps.slice(0, 10).map((x) => x.name),
     datasets: [
       {
-        label: 'Tempo',
-        data: apps.map((x) => toHours(x.durationMs)),
-        backgroundColor: '#00d9ff',
-        borderRadius: 6,
+        label: 'Horas',
+        data: apps.slice(0, 10).map((x) => toHours(x.durationMs)),
+        backgroundColor: 'rgba(200, 149, 106, 0.7)',
+        hoverBackgroundColor: '#c8956a',
+        borderRadius: 3,
         borderSkipped: false,
-        borderColor: 'rgba(0, 217, 255, 0.5)',
-        borderWidth: 1
+        borderWidth: 0
       }
     ]
   };
 
+  /* ── Sites donut chart ───────────────────────────────────────── */
   const siteData = {
-    labels: sites.map((x) => x.name),
+    labels: sites.slice(0, 8).map((x) => x.name),
     datasets: [
       {
-        data: sites.map((x) => toHours(x.durationMs)),
-        backgroundColor: sites.map((_, index) => palette[index % palette.length])
+        data: sites.slice(0, 8).map((x) => toHours(x.durationMs)),
+        backgroundColor: donutPalette,
+        borderWidth: 0,
+        hoverOffset: 4
       }
     ]
   };
 
+  /* ── Timeline bar chart ──────────────────────────────────────── */
   const timelineData = {
     labels: byDay.map((x) => {
-      const date = new Date(x.date);
-      return date.toLocaleDateString('pt-BR', { weekday: 'short', month: 'short', day: 'numeric' });
+      const d = new Date(x.date);
+      return d.toLocaleDateString('pt-BR', { day: 'numeric', month: 'short' });
     }),
     datasets: [
       {
-        label: 'Tempo por dia',
+        label: 'Horas',
         data: byDay.map((x) => toHours(x.durationMs)),
-        backgroundColor: '#00d9ff',
-        borderRadius: 6,
+        backgroundColor: 'rgba(200, 149, 106, 0.55)',
+        hoverBackgroundColor: '#c8956a',
+        borderRadius: 2,
         borderSkipped: false,
-        borderColor: 'rgba(0, 217, 255, 0.5)',
-        borderWidth: 1
+        borderWidth: 0
       }
     ]
   };
 
   return (
     <>
+      {/* Apps */}
       <div className="chart-card">
-        <h3>Apps Mais Usados</h3>
+        <div className="chart-head">
+          <span className="chart-title">Apps mais usados</span>
+          <span className="chart-period">top 10 · horas</span>
+        </div>
         <div className="chart-container">
           <Bar
             data={appData}
@@ -83,40 +123,61 @@ export default function Charts({ apps, sites, byDay }: Props) {
               responsive: true,
               maintainAspectRatio: false,
               plugins: {
-                legend: { display: false }
+                legend: { display: false },
+                tooltip: {
+                  ...tooltipStyle,
+                  callbacks: {
+                    label: (ctx) => ` ${ctx.raw}h`
+                  }
+                }
               },
               scales: {
                 y: {
                   beginAtZero: true,
-                  grid: { color: 'rgba(0, 217, 255, 0.1)' },
-                  ticks: { color: 'rgba(224, 230, 255, 0.7)' }
+                  grid: gridStyle,
+                  border: { display: false },
+                  ticks: { ...axisStyle, callback: (v) => `${v}h` }
                 },
                 x: {
-                  grid: { color: 'rgba(0, 217, 255, 0.05)' },
-                  ticks: { color: 'rgba(224, 230, 255, 0.7)' }
+                  grid: { display: false },
+                  border: { display: false },
+                  ticks: { ...axisStyle, maxRotation: 30 }
                 }
               }
             }}
-            height={260}
           />
         </div>
       </div>
 
+      {/* Sites donut */}
       <div className="chart-card">
-        <h3>Sites Mais Visitados</h3>
+        <div className="chart-head">
+          <span className="chart-title">Sites mais visitados</span>
+          <span className="chart-period">top 8</span>
+        </div>
         <div className="chart-container-donut">
           <Doughnut
             data={siteData}
             options={{
               responsive: true,
-              maintainAspectRatio: true,
+              maintainAspectRatio: false,
+              cutout: '68%',
               plugins: {
                 legend: {
-                  position: 'bottom',
+                  position: 'right',
                   labels: {
-                    padding: 16,
-                    font: { size: 13 },
-                    color: 'rgba(224, 230, 255, 0.7)'
+                    padding: 14,
+                    boxWidth: 10,
+                    boxHeight: 10,
+                    borderRadius: 3,
+                    font: { family: "'DM Mono', monospace", size: 11 },
+                    color: 'rgba(122, 119, 111, 0.9)'
+                  }
+                },
+                tooltip: {
+                  ...tooltipStyle,
+                  callbacks: {
+                    label: (ctx) => ` ${ctx.raw}h`
                   }
                 }
               }
@@ -125,33 +186,46 @@ export default function Charts({ apps, sites, byDay }: Props) {
         </div>
       </div>
 
-      <div className="chart-card chart-card-full">
-        <h3>Timeline</h3>
-        <div className="chart-container">
-          <Bar
-            data={timelineData}
-            options={{
-              responsive: true,
-              maintainAspectRatio: false,
-              plugins: {
-                legend: { display: false }
-              },
-              scales: {
-                y: {
-                  beginAtZero: true,
-                  grid: { color: 'rgba(0, 217, 255, 0.1)' },
-                  ticks: { color: 'rgba(224, 230, 255, 0.7)' }
+      {/* Timeline */}
+      {byDay.length > 0 && (
+        <div className="chart-card chart-card-full">
+          <div className="chart-head">
+            <span className="chart-title">Atividade por dia</span>
+            <span className="chart-period">horas</span>
+          </div>
+          <div className="chart-container">
+            <Bar
+              data={timelineData}
+              options={{
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                  legend: { display: false },
+                  tooltip: {
+                    ...tooltipStyle,
+                    callbacks: {
+                      label: (ctx) => ` ${ctx.raw}h`
+                    }
+                  }
                 },
-                x: {
-                  grid: { color: 'rgba(0, 217, 255, 0.05)' },
-                  ticks: { color: 'rgba(224, 230, 255, 0.7)' }
+                scales: {
+                  y: {
+                    beginAtZero: true,
+                    grid: gridStyle,
+                    border: { display: false },
+                    ticks: { ...axisStyle, callback: (v) => `${v}h` }
+                  },
+                  x: {
+                    grid: { display: false },
+                    border: { display: false },
+                    ticks: { ...axisStyle, maxRotation: 0 }
+                  }
                 }
-              }
-            }}
-            height={240}
-          />
+              }}
+            />
+          </div>
         </div>
-      </div>
+      )}
     </>
   );
 }

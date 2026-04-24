@@ -15,9 +15,7 @@ export default function LoginPage() {
   useEffect(() => {
     setMounted(true);
     const token = localStorage.getItem('mg_token');
-    if (token) {
-      router.push('/dashboard');
-    }
+    if (token) router.push('/dashboard');
   }, [router]);
 
   async function handleLogin() {
@@ -46,33 +44,52 @@ export default function LoginPage() {
     }
   }
 
-  function handleKeyPress(e: React.KeyboardEvent) {
-    if (e.key === 'Enter' && login && password && !loading) {
-      handleLogin();
-    }
+  function handleKeyDown(e: React.KeyboardEvent) {
+    if (e.key === 'Enter' && login && password && !loading) handleLogin();
   }
 
   if (!mounted) return null;
 
   return (
     <main className="login-container">
-      <div className="login-box">
-        <div className="login-header">
-          <h1>MonitorGate</h1>
-          <p>Monitoramento de Atividades</p>
+      {/* Left panel — brand / copy */}
+      <div className="login-left">
+        <div className="login-logo">
+          <div className="login-logo-dot" />
+          MonitorGate
         </div>
 
-        <div className="login-form">
+        <div>
+          <h1 className="login-tagline">
+            Entenda como você usa<br />
+            <em>o seu tempo.</em>
+          </h1>
+          <p className="login-left-desc">
+            Monitoramento contínuo de aplicativos e sites, com análise por dia,
+            mês e visão geral. Simples, preciso e sem distrações.
+          </p>
+        </div>
+
+        <p className="login-copyright">MonitorGate © 2026</p>
+      </div>
+
+      {/* Right panel — form */}
+      <div className="login-right">
+        <div className="login-form-wrap">
+          <h2 className="login-form-title">Entrar</h2>
+          <p className="login-form-sub">Acesse seu painel de monitoramento</p>
+
           <div className="form-group">
             <label htmlFor="login">Usuário</label>
             <input
               id="login"
               type="text"
-              placeholder="Seu login"
+              placeholder="seu login"
               value={login}
               onChange={(e) => setLogin(e.target.value)}
-              onKeyPress={handleKeyPress}
+              onKeyDown={handleKeyDown}
               disabled={loading}
+              autoComplete="username"
             />
           </div>
 
@@ -81,11 +98,12 @@ export default function LoginPage() {
             <input
               id="password"
               type="password"
-              placeholder="Sua senha"
+              placeholder="••••••••"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              onKeyPress={handleKeyPress}
+              onKeyDown={handleKeyDown}
               disabled={loading}
+              autoComplete="current-password"
             />
           </div>
 
@@ -96,13 +114,11 @@ export default function LoginPage() {
             onClick={handleLogin}
             disabled={!login || !password || loading}
           >
-            {loading ? 'Entrando...' : 'Entrar'}
+            {loading ? 'Entrando…' : 'Entrar'}
           </button>
-        </div>
 
-        <div className="login-footer">
-          <p className="muted">
-            MonitorGate © 2026 • <Link href="/">Voltar</Link>
+          <p className="login-back">
+            <Link href="/">← Voltar ao início</Link>
           </p>
         </div>
       </div>
